@@ -14,7 +14,8 @@ export const Route = createFileRoute("/app")({
   component: AppShell,
 });
 
-const NAV = [
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
+const NAV: NavItem[] = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/app/meal-plans", label: "Meal Plans", icon: Utensils },
   { to: "/app/coach", label: "AI Coach", icon: Bot },
@@ -23,7 +24,7 @@ const NAV = [
   { to: "/app/progress", label: "Progress", icon: LineChart },
   { to: "/app/grocery", label: "Grocery", icon: ShoppingCart },
   { to: "/app/settings", label: "Settings", icon: Settings },
-] as const;
+];
 
 function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -42,7 +43,7 @@ function AppShell() {
             {NAV.map((n) => {
               const active = n.exact ? pathname === n.to : pathname.startsWith(n.to);
               return (
-                <Link key={n.to} to={n.to}
+                <Link key={n.to} to={n.to as any}
                   className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
                   <n.icon className="h-4 w-4" />
                   {n.label}
@@ -102,7 +103,7 @@ function MobileNav({ pathname }: { pathname: string }) {
       {items.map((n) => {
         const active = n.exact ? pathname === n.to : pathname.startsWith(n.to);
         return (
-          <Link key={n.to} to={n.to}
+          <Link key={n.to} to={n.to as any}
             className={`flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-[10px] ${active ? "text-primary" : "text-muted-foreground"}`}>
             <n.icon className="h-4 w-4" />
             {n.label.split(" ")[0]}
