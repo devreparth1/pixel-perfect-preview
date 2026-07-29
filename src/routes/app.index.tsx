@@ -3,6 +3,7 @@ import { Flame, Dumbbell, Droplet, Scale, Sparkles, Plus, TrendingDown } from "l
 import {
   Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
+import { useAuth } from "../lib/auth-context";
 
 export const Route = createFileRoute("/app/")({
   component: Dashboard,
@@ -18,13 +19,20 @@ const calData = [
 ];
 
 function Dashboard() {
+  const { user } = useAuth();
+  const firstName =
+    user?.user_metadata?.full_name?.split(" ")[0] ||
+    user?.user_metadata?.name?.split(" ")[0] ||
+    user?.email?.split("@")[0] ||
+    "there";
+
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   return (
     <div className="space-y-6 pb-24 lg:pb-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{greet}, John 👋</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{greet}, {firstName} 👋</h1>
           <p className="mt-1 text-sm text-muted-foreground">You're on track today. Keep it up.</p>
         </div>
         <button className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:brightness-110">

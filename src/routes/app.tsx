@@ -1,16 +1,21 @@
-import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, Utensils, Bot, ScanLine, LineChart, ShoppingCart,
-  Settings, Salad, Bell, Search, ChefHat,
+  Settings, Salad, Bell, Search, ChefHat, LogOut,
 } from "lucide-react";
+import { useAuth } from "../lib/auth-context";
+import { AuthLoading } from "../components/auth/auth-loading";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/app")({
-  head: () => ({ meta: [
-    { title: "Dashboard — RP Nutrition" },
-    { name: "description", content: "Your daily nutrition dashboard: calories, macros, water, and AI coaching." },
-    { property: "og:title", content: "Dashboard — RP Nutrition" },
-    { property: "og:description", content: "Track meals, macros, and progress with your AI nutrition coach." },
-  ]}),
+  head: () => ({
+    meta: [
+      { title: "Dashboard — RP Nutrition" },
+      { name: "description", content: "Your daily nutrition dashboard: calories, macros, water, and AI coaching." },
+      { property: "og:title", content: "Dashboard — RP Nutrition" },
+      { property: "og:description", content: "Track meals, macros, and progress with your AI nutrition coach." },
+    ],
+  }),
   component: AppShell,
 });
 
@@ -28,6 +33,37 @@ const NAV: NavItem[] = [
 
 function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const nav = useNavigate();
+  const { user, loading, signOut } = useAuth();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      nav({ to: "/login" });
+    }
+  }, [user, loading, nav]);
+
+  if (loading) return <AuthLoading />;
+  if (!user) return <AuthLoading />;
+
+  const handleSignOut = async () => {
+    await signOut();
+    nav({ to: "/login" });
+  };
+
+  const displayName =
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    user.email?.split("@")[0] ||
+    "User";
+
+  const initials = displayName
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto flex max-w-[1400px] gap-6 px-4 py-6">
@@ -41,7 +77,7 @@ function AppShell() {
           </Link>
           <nav className="mt-4 space-y-1">
             {NAV.map((n) => {
-              const active = n.exact ? pathname === n.to : pathname.startsWith(n.to);
+              const active = n.exact ? pathname === n.to : pathname.startsWith(n.to) && !n.exact;
               return (
                 <Link key={n.to} to={n.to as any}
                   className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
@@ -51,18 +87,27 @@ function AppShell() {
               );
             })}
           </nav>
-          <div className="mt-auto rounded-2xl glass-strong p-4">
-            <div className="text-xs text-muted-foreground">Premium trial</div>
-            <div className="mt-1 text-sm">6 days left</div>
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/5">
-              <div className="h-full w-[85%] rounded-full" style={{ background: "var(--gradient-primary)" }} />
+          <div className="mt-auto space-y-3">
+            <div className="rounded-2xl glass-strong p-4">
+              <div className="text-xs text-muted-foreground">Premium trial</div>
+              <div className="mt-1 text-sm">6 days left</div>
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                <div className="h-full w-[85%] rounded-full" style={{ background: "var(--gradient-primary)" }} />
+              </div>
             </div>
+            <button
+              onClick={handleSignOut}
+              className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-white/5 hover:text-foreground"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </button>
           </div>
         </aside>
 
         {/* Main */}
         <main className="min-w-0 flex-1">
-          <TopBar />
+          <TopBar displayName={displayName} initials={initials} onSignOut={handleSignOut} />
           <div className="mt-6">
             <Outlet />
           </div>
@@ -74,7 +119,7 @@ function AppShell() {
   );
 }
 
-function TopBar() {
+function TopBar({ displayName, initials, onSignOut }: { displayName: string; initials: string; onSignOut: () => void }) {
   return (
     <header className="flex items-center gap-3 rounded-3xl glass p-3">
       <div className="flex flex-1 items-center gap-2 rounded-2xl bg-white/[0.03] px-3 py-2">
@@ -86,10 +131,14 @@ function TopBar() {
         <Bell className="h-4 w-4" />
       </button>
       <div className="hidden items-center gap-3 rounded-2xl glass px-3 py-1.5 md:flex">
-        <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/20 text-primary font-medium text-sm">J</div>
+        <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/20 text-primary font-medium text-sm">
+          {initials}
+        </div>
         <div className="text-sm leading-tight">
-          <div className="font-medium">John</div>
-          <div className="text-xs text-muted-foreground">Premium</div>
+          <div className="font-medium">{displayName}</div>
+          <button onClick={onSignOut} className="text-xs text-muted-foreground hover:text-primary">
+            Sign out
+          </button>
         </div>
       </div>
     </header>
