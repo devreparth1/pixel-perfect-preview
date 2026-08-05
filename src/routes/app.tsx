@@ -4,8 +4,9 @@ import {
   Settings, Salad, Bell, Search, ChefHat, LogOut,
 } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
+import { useActivity } from "../lib/activity-tracker";
 import { AuthLoading } from "../components/auth/auth-loading";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -35,6 +36,8 @@ function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const nav = useNavigate();
   const { user, loading, signOut } = useAuth();
+  const { trackPageView, trackFeatureUse, trackSearch } = useActivity();
+  const prevPathRef = useRef<string>("");
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -42,6 +45,17 @@ function AppShell() {
       nav({ to: "/login" });
     }
   }, [user, loading, nav]);
+
+  // Track page views on navigation
+  useEffect(() => {
+    if (user && pathname && pathname !== prevPathRef.current) {
+      const pageName = NAV.find((n) =>
+        n.exact ? pathname === n.to : pathname.startsWith(n.to) && pathname !== "/app"
+      )?.label || pathname.split("/").pop() || "unknown";
+      trackPageView(pathname, pageName);
+      prevPathRef.current = pathname;
+    }
+  }, [pathname, user, trackPageView]);
 
   if (loading) return <AuthLoading />;
   if (!user) return <AuthLoading />;
@@ -120,11 +134,25 @@ function AppShell() {
 }
 
 function TopBar({ displayName, initials, onSignOut }: { displayName: string; initials: string; onSignOut: () => void }) {
+  const { trackSearch } = useActivity();
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value.trim();
+    if (query.length < 2) return;
+    // Debounce search tracking (track after 1s of inactivity)
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      trackSearch(query);
+    }, 1000);
+  };
+
   return (
     <header className="flex items-center gap-3 rounded-3xl glass p-3">
       <div className="flex flex-1 items-center gap-2 rounded-2xl bg-white/[0.03] px-3 py-2">
         <Search className="h-4 w-4 text-muted-foreground" />
         <input placeholder="Search meals, foods, recipes…"
+          onChange={handleSearchInput}
           className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/60" />
       </div>
       <button className="grid h-10 w-10 place-items-center rounded-2xl glass hover:bg-white/5">
