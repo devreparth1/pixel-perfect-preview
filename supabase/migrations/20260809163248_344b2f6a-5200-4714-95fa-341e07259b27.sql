@@ -1,0 +1,2 @@
+DROP FUNCTION IF EXISTS public.handle_new_user();
+REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authenticated;
