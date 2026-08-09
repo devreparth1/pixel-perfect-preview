@@ -30,7 +30,7 @@ const RANGES = [
 type Metric = "calories" | "protein" | "carbs" | "fat" | "water";
 
 function Progress() {
-  const { targets } = useTargets();
+  const { targets, profile } = useTargets();
   const weights = useWeightLogs();
   const meals = useMealHistory(90);
   const water = useWaterHistory(90);
@@ -101,7 +101,7 @@ function Progress() {
   }, [nutrition.byDate, rows]);
 
   const hasNutrition = nutrition.series.some((d) => d.calories > 0 || d.water > 0);
-  const target = targets.target_weight ?? null;
+  const target = profile?.target_weight_kg == null ? null : Number(profile.target_weight_kg);
 
   const submitWeight = () => {
     const w = Number(weightInput);
