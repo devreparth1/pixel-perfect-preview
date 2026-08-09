@@ -70,7 +70,7 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     eventQueueRef.current = [];
 
     try {
-      await supabase.from("user_activity").insert(events);
+      await supabase.from("user_activity").insert(events as never);
     } catch (err) {
       // If insert fails, re-queue events (up to a limit to prevent memory leaks)
       if (eventQueueRef.current.length < 100) {
