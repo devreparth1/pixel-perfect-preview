@@ -281,6 +281,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_activity: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          event_data: Json
+          event_name: string
+          event_type: string
+          id: string
+          page_path: string | null
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          event_data?: Json
+          event_name: string
+          event_type: string
+          id?: string
+          page_path?: string | null
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          event_data?: Json
+          event_name?: string
+          event_type?: string
+          id?: string
+          page_path?: string | null
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       water_logs: {
         Row: {
           amount_ml: number
@@ -334,7 +370,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_insights: {
+        Args: { target_user_id: string }
+        Returns: {
+          category: string
+          insight_key: string
+          insight_value: string
+          score: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
