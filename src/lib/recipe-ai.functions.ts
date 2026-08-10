@@ -53,9 +53,9 @@ export const generateRecipe = createServerFn({ method: "POST" })
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: "google/gemini-3.5-flash",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: "You are a nutrition-aware recipe developer. Always return estimated nutrition, never claim lab accuracy." },
           { role: "user", content: prompt },
@@ -67,7 +67,11 @@ export const generateRecipe = createServerFn({ method: "POST" })
 
     if (res.status === 429) throw new Error("The AI is busy right now — try again in a moment.");
     if (res.status === 402) throw new Error("AI credits are exhausted for this workspace.");
-    if (!res.ok) throw new Error("The AI couldn't generate a recipe right now.");
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.error("[recipe-ai] gateway error", res.status, detail.slice(0, 500));
+      throw new Error("The AI couldn't generate a recipe right now.");
+    }
 
     const json = (await res.json()) as {
       choices?: { message?: { tool_calls?: { function?: { arguments?: string } }[] } }[];
