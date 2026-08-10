@@ -93,17 +93,10 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
   // Flush on unmount or page unload
   useEffect(() => {
     const handleUnload = () => {
+      // Flush through the configured Supabase client (sendBeacon can't carry the
+      // user's bearer token, so it would be rejected by RLS / api key checks).
       if (eventQueueRef.current.length > 0 && user) {
-        // Use sendBeacon for reliable delivery on page unload
-        const events = eventQueueRef.current;
-        eventQueueRef.current = [];
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_activity`;
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        const blob = new Blob([JSON.stringify(events)], { type: "application/json" });
-        navigator.sendBeacon?.(
-          `${url}?apikey=${anonKey}`,
-          blob
-        );
+        void flushEvents();
       }
     };
 
