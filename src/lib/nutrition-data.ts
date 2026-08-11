@@ -113,6 +113,7 @@ export const qk = {
   recipes: () => ["recipes"] as const,
   favorites: (u: string) => ["favorites", u] as const,
   plan: (u: string, d: string) => ["meal-plan", u, d] as const,
+  grocery: (u: string) => ["grocery", u] as const,
 };
 
 function invalidateNutrition(qc: QueryClient, uid: string) {
@@ -574,6 +575,204 @@ export function useMealPlan(date = dateKey()) {
         .eq("plan_date", date);
       if (error) throw error;
       return data ?? [];
+    },
+  });
+}
+
+// ─── meal edit ───────────────────────────────────────────────────────────────
+
+export type MealPatch = Partial<Pick<MealLog, "name" | "meal_type" | "calories" | "protein" | "carbs" | "fat" | "fiber">>;
+
+export function useUpdateMeal() {
+  const uid = useUid();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: MealPatch }) => {
+      const { error } = await supabase.from("meal_logs").update(patch as never).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      if (uid) invalidateNutrition(qc, uid);
+      toast.success("Meal updated");
+    },
+    onError: (e) => toast.error(friendlyError(e, "Couldn't update that meal.")),
+  });
+}
+
+// ─── meal plan (write side) ──────────────────────────────────────────────────
+
+export type PlanItem = {
+  id: string;
+  plan_date: string;
+  meal_type: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  recipe_id: string | null;
+};
+
+export type NewPlanItem = Omit<PlanItem, "id">;
+
+export function useSavePlan() {
+  const uid = useUid();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ date, items }: { date: string; items: NewPlanItem[] }) => {
+      const del = await supabase.from("meal_plan_items").delete().eq("user_id", uid!).eq("plan_date", date);
+      if (del.error) throw del.error;
+      if (items.length) {
+        const { error } = await supabase
+          .from("meal_plan_items")
+          .insert(items.map((i) => ({ ...i, user_id: uid! })) as never);
+        if (error) throw error;
+      }
+      return date;
+    },
+    onSuccess: (date) => {
+      if (uid) qc.invalidateQueries({ queryKey: qk.plan(uid, date) });
+      toast.success("Meal plan saved");
+    },
+    onError: (e) => toast.error(friendlyError(e, "Couldn't save your meal plan.")),
+  });
+}
+
+export function useDeletePlanItem() {
+  const uid = useUid();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; date: string }) => {
+      const { error } = await supabase.from("meal_plan_items").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      if (uid) qc.invalidateQueries({ queryKey: qk.plan(uid, v.date) });
+      toast.success("Removed from plan");
+    },
+    onError: (e) => toast.error(friendlyError(e, "Couldn't remove that item.")),
+  });
+}
+
+// ─── grocery list ────────────────────────────────────────────────────────────
+
+export type GroceryItem = {
+  id: string;
+  name: string;
+  category: string;
+  quantity: string;
+  purchased: boolean;
+  source_plan_date: string | null;
+};
+
+const GROCERY_COLS = "id,name,category,quantity,purchased,source_plan_date";
+
+export function useGroceryItems() {
+  const uid = useUid();
+  return useQuery({
+    queryKey: qk.grocery(uid ?? "anon"),
+    enabled: !!uid,
+    queryFn: async (): Promise<GroceryItem[]> => {
+      const { data, error } = await supabase
+        .from("grocery_items")
+        .select(GROCERY_COLS)
+        .eq("user_id", uid!)
+        .order("category", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as GroceryItem[];
+    },
+  });
+}
+
+export type NewGroceryItem = { name: string; category?: string; quantity?: string; source_plan_date?: string | null };
+
+export function useAddGroceryItems() {
+  const uid = useUid();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (items: NewGroceryItem[]) => {
+      if (!items.length) return 0;
+      const rows = items.map((i) => ({
+        user_id: uid!,
+        name: i.name.trim(),
+        category: i.category ?? "Other",
+        quantity: i.quantity ?? "",
+        source_plan_date: i.source_plan_date ?? null,
+      }));
+      // Duplicates are blocked by a case-insensitive unique index; skip them quietly.
+      const { data, error } = await supabase.from("grocery_items").insert(rows as never).select("id");
+      if (error && !/duplicate key/i.test(error.message)) throw error;
+      return (data ?? []).length;
+    },
+    onSuccess: () => {
+      if (uid) qc.invalidateQueries({ queryKey: qk.grocery(uid) });
+    },
+    onError: (e) => toast.error(friendlyError(e, "Couldn't update your grocery list.")),
+  });
+}
+
+export function useToggleGroceryItem() {
+  const uid = useUid();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, purchased }: { id: string; purchased: boolean }) => {
+      const { error } = await supabase.from("grocery_items").update({ purchased } as never).eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, purchased }) => {
+      if (!uid) return;
+      const key = qk.grocery(uid);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<GroceryItem[]>(key) ?? [];
+      qc.setQueryData<GroceryItem[]>(key, prev.map((i) => (i.id === id ? { ...i, purchased } : i)));
+      return { prev, key };
+    },
+    onError: (e, _v, ctx) => {
+      if (ctx) qc.setQueryData(ctx.key, ctx.prev);
+      toast.error(friendlyError(e, "Couldn't update that item."));
+    },
+  });
+}
+
+export function useDeleteGroceryItems() {
+  const uid = useUid();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (!ids.length) return;
+      const { error } = await supabase.from("grocery_items").delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      if (uid) qc.invalidateQueries({ queryKey: qk.grocery(uid) });
+    },
+    onError: (e) => toast.error(friendlyError(e, "Couldn't remove those items.")),
+  });
+}
+
+/** Plan items for a forward-looking window, used by the grocery generator. */
+export function useMealPlanRange(days = 7) {
+  const uid = useUid();
+  const from = dateKey();
+  const to = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return dateKey(d);
+  })();
+  return useQuery({
+    queryKey: ["meal-plan-range", uid ?? "anon", from, days],
+    enabled: !!uid,
+    queryFn: async (): Promise<PlanItem[]> => {
+      const { data, error } = await supabase
+        .from("meal_plan_items")
+        .select("id,plan_date,meal_type,name,calories,protein,carbs,fat,recipe_id")
+        .eq("user_id", uid!)
+        .gte("plan_date", from)
+        .lte("plan_date", to)
+        .order("plan_date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as PlanItem[];
     },
   });
 }

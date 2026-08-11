@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  Flame, Dumbbell, Droplet, Scale, Sparkles, Plus, Minus, X, Trash2,
+  Flame, Dumbbell, Droplet, Scale, Sparkles, Plus, Minus, Trash2, Pencil,
   Utensils, Bot, CalendarDays, ChevronRight, Wheat, Nut, AlertCircle,
 } from "lucide-react";
 import {
@@ -13,7 +13,8 @@ import { useAuth } from "../lib/auth-context";
 import { dateKey, daysAgoKey, shortDate, MEAL_TYPES, num } from "../lib/nutrition";
 import {
   useTargets, useMealsForDate, useMealHistory, useWaterForDate, useWeightLogs,
-  useLogMeal, useDeleteMeal, useAddWater, useLogWeight, sumMacros,
+  useLogMeal, useDeleteMeal, useUpdateMeal, useAddWater, useLogWeight, sumMacros,
+  type MealLog,
 } from "../lib/nutrition-data";
 import { Bar, CardSkeleton, ChartSkeleton, EmptyState, EstimateNote, Modal } from "../components/nutrition/primitives";
 
@@ -33,7 +34,7 @@ const MEAL_LABEL: Record<string, string> = {
   breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack",
 };
 
-type Panel = null | "calories" | "protein" | "water" | "weight" | "meals" | "logMeal" | "logWeight";
+type Panel = null | "calories" | "protein" | "water" | "weight" | "meals" | "logMeal" | "logWeight" | "editMeal";
 
 function Dashboard() {
   const { user } = useAuth();
@@ -48,11 +49,16 @@ function Dashboard() {
 
   const logMeal = useLogMeal();
   const deleteMeal = useDeleteMeal();
+  const updateMeal = useUpdateMeal();
   const addWater = useAddWater();
   const logWeight = useLogWeight();
 
   const [panel, setPanel] = useState<Panel>(null);
-  const close = () => setPanel(null);
+  const [editing, setEditing] = useState<MealLog | null>(null);
+  const close = () => {
+    setPanel(null);
+    setEditing(null);
+  };
 
   const firstName =
     profile?.full_name?.split(" ")[0] ||
@@ -227,6 +233,13 @@ function Dashboard() {
                   </div>
                   <div className="font-num text-sm">{Math.round(num(m.calories))}<span className="text-xs text-muted-foreground"> kcal</span></div>
                   <button
+                    onClick={() => { setEditing(m); setPanel("editMeal"); }}
+                    aria-label={`Edit ${m.name}`}
+                    className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={() => deleteMeal.mutate(m.id)}
                     aria-label={`Remove ${m.name}`}
                     className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-white/5 hover:text-foreground"
@@ -308,6 +321,18 @@ function Dashboard() {
           pending={logMeal.isPending}
           onSubmit={(meal) => logMeal.mutate(meal, { onSuccess: close })}
         />
+      </Modal>
+
+      <Modal open={panel === "editMeal"} onClose={close} title="Edit meal" subtitle="Update anything and your totals recalculate.">
+        {editing ? (
+          <MealForm
+            key={editing.id}
+            initial={editing}
+            submitLabel="Save changes"
+            pending={updateMeal.isPending}
+            onSubmit={(patch) => updateMeal.mutate({ id: editing.id, patch }, { onSuccess: close })}
+          />
+        ) : null}
       </Modal>
 
       <Modal open={panel === "calories"} onClose={close} title="Today's nutrition" subtitle="Estimated from your logged meals.">
@@ -473,12 +498,22 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function MealForm({
-  pending, onSubmit,
+  pending, onSubmit, initial, submitLabel,
 }: {
   pending: boolean;
   onSubmit: (m: { name: string; meal_type: string; calories: number; protein: number; carbs: number; fat: number; fiber: number }) => void;
+  initial?: { name: string; meal_type: string; calories: number; protein: number; carbs: number; fat: number; fiber: number };
+  submitLabel?: string;
 }) {
-  const [f, setF] = useState({ name: "", meal_type: "snack", calories: "", protein: "", carbs: "", fat: "", fiber: "" });
+  const [f, setF] = useState({
+    name: initial?.name ?? "",
+    meal_type: initial?.meal_type ?? "snack",
+    calories: initial ? String(Math.round(num(initial.calories))) : "",
+    protein: initial ? String(Math.round(num(initial.protein))) : "",
+    carbs: initial ? String(Math.round(num(initial.carbs))) : "",
+    fat: initial ? String(Math.round(num(initial.fat))) : "",
+    fiber: initial ? String(Math.round(num(initial.fiber))) : "",
+  });
   const field = "w-full rounded-2xl bg-white/5 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary";
 
   return (
@@ -510,7 +545,7 @@ function MealForm({
         <input aria-label="Fiber grams" inputMode="numeric" placeholder="fiber g" value={f.fiber} onChange={(e) => setF({ ...f, fiber: e.target.value })} className={field} />
       </div>
       <button disabled={pending} className="w-full rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition hover:brightness-110 disabled:opacity-60">
-        {pending ? "Saving…" : "Log meal"}
+        {pending ? "Saving…" : (submitLabel ?? "Log meal")}
       </button>
       <EstimateNote>Nutrition you enter is stored as your own estimate.</EstimateNote>
     </form>
