@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  Flame, Dumbbell, Droplet, Scale, Sparkles, Plus, Minus, X, Trash2,
+  Flame, Dumbbell, Droplet, Scale, Sparkles, Plus, Minus, Trash2, Pencil,
   Utensils, Bot, CalendarDays, ChevronRight, Wheat, Nut, AlertCircle,
 } from "lucide-react";
 import {
@@ -13,7 +13,8 @@ import { useAuth } from "../lib/auth-context";
 import { dateKey, daysAgoKey, shortDate, MEAL_TYPES, num } from "../lib/nutrition";
 import {
   useTargets, useMealsForDate, useMealHistory, useWaterForDate, useWeightLogs,
-  useLogMeal, useDeleteMeal, useAddWater, useLogWeight, sumMacros,
+  useLogMeal, useDeleteMeal, useUpdateMeal, useAddWater, useLogWeight, sumMacros,
+  type MealLog,
 } from "../lib/nutrition-data";
 import { Bar, CardSkeleton, ChartSkeleton, EmptyState, EstimateNote, Modal } from "../components/nutrition/primitives";
 
@@ -33,7 +34,7 @@ const MEAL_LABEL: Record<string, string> = {
   breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack",
 };
 
-type Panel = null | "calories" | "protein" | "water" | "weight" | "meals" | "logMeal" | "logWeight";
+type Panel = null | "calories" | "protein" | "water" | "weight" | "meals" | "logMeal" | "logWeight" | "editMeal";
 
 function Dashboard() {
   const { user } = useAuth();
@@ -48,11 +49,16 @@ function Dashboard() {
 
   const logMeal = useLogMeal();
   const deleteMeal = useDeleteMeal();
+  const updateMeal = useUpdateMeal();
   const addWater = useAddWater();
   const logWeight = useLogWeight();
 
   const [panel, setPanel] = useState<Panel>(null);
-  const close = () => setPanel(null);
+  const [editing, setEditing] = useState<MealLog | null>(null);
+  const close = () => {
+    setPanel(null);
+    setEditing(null);
+  };
 
   const firstName =
     profile?.full_name?.split(" ")[0] ||
@@ -226,6 +232,13 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className="font-num text-sm">{Math.round(num(m.calories))}<span className="text-xs text-muted-foreground"> kcal</span></div>
+                  <button
+                    onClick={() => { setEditing(m); setPanel("editMeal"); }}
+                    aria-label={`Edit ${m.name}`}
+                    className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
                   <button
                     onClick={() => deleteMeal.mutate(m.id)}
                     aria-label={`Remove ${m.name}`}
