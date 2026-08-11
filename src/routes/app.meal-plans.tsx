@@ -208,12 +208,8 @@ function MealPlans() {
                 >
                   <Utensils className="mr-1 inline h-3 w-3" /> Log it
                 </button>
-                <Link
-                  to="/app/recipes"
-                  search={m.recipe_id ? ({ recipe: m.recipe_id } as never) : undefined}
-                  className="flex-1 rounded-full glass py-2 text-center text-xs hover:bg-white/5"
-                >
-                  Recipe
+                <Link to="/app/recipes" className="flex-1 rounded-full glass py-2 text-center text-xs hover:bg-white/5">
+                  Recipes
                 </Link>
               </div>
             </article>
