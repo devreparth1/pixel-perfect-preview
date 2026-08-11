@@ -752,3 +752,29 @@ export function useDeleteGroceryItems() {
     onError: (e) => toast.error(friendlyError(e, "Couldn't remove those items.")),
   });
 }
+
+/** Plan items for a forward-looking window, used by the grocery generator. */
+export function useMealPlanRange(days = 7) {
+  const uid = useUid();
+  const from = dateKey();
+  const to = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return dateKey(d);
+  })();
+  return useQuery({
+    queryKey: ["meal-plan-range", uid ?? "anon", from, days],
+    enabled: !!uid,
+    queryFn: async (): Promise<PlanItem[]> => {
+      const { data, error } = await supabase
+        .from("meal_plan_items")
+        .select("id,plan_date,meal_type,name,calories,protein,carbs,fat,recipe_id")
+        .eq("user_id", uid!)
+        .gte("plan_date", from)
+        .lte("plan_date", to)
+        .order("plan_date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as PlanItem[];
+    },
+  });
+}
