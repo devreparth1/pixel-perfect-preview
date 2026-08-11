@@ -700,11 +700,9 @@ export function useAddGroceryItems() {
         quantity: i.quantity ?? "",
         source_plan_date: i.source_plan_date ?? null,
       }));
-      const { data, error } = await supabase
-        .from("grocery_items")
-        .upsert(rows as never, { onConflict: "user_id,name", ignoreDuplicates: true })
-        .select("id");
-      if (error) throw error;
+      // Duplicates are blocked by a case-insensitive unique index; skip them quietly.
+      const { data, error } = await supabase.from("grocery_items").insert(rows as never).select("id");
+      if (error && !/duplicate key/i.test(error.message)) throw error;
       return (data ?? []).length;
     },
     onSuccess: () => {
