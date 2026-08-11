@@ -323,6 +323,18 @@ function Dashboard() {
         />
       </Modal>
 
+      <Modal open={panel === "editMeal"} onClose={close} title="Edit meal" subtitle="Update anything and your totals recalculate.">
+        {editing ? (
+          <MealForm
+            key={editing.id}
+            initial={editing}
+            submitLabel="Save changes"
+            pending={updateMeal.isPending}
+            onSubmit={(patch) => updateMeal.mutate({ id: editing.id, patch }, { onSuccess: close })}
+          />
+        ) : null}
+      </Modal>
+
       <Modal open={panel === "calories"} onClose={close} title="Today's nutrition" subtitle="Estimated from your logged meals.">
         <div className="space-y-4">
           <SummaryRow label="Calorie target (estimated)" value={`${targets.calories.toLocaleString()} kcal`} />
