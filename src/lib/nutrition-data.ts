@@ -113,6 +113,7 @@ export const qk = {
   recipes: () => ["recipes"] as const,
   favorites: (u: string) => ["favorites", u] as const,
   plan: (u: string, d: string) => ["meal-plan", u, d] as const,
+  grocery: (u: string) => ["grocery", u] as const,
 };
 
 function invalidateNutrition(qc: QueryClient, uid: string) {
