@@ -498,12 +498,22 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function MealForm({
-  pending, onSubmit,
+  pending, onSubmit, initial, submitLabel,
 }: {
   pending: boolean;
   onSubmit: (m: { name: string; meal_type: string; calories: number; protein: number; carbs: number; fat: number; fiber: number }) => void;
+  initial?: { name: string; meal_type: string; calories: number; protein: number; carbs: number; fat: number; fiber: number };
+  submitLabel?: string;
 }) {
-  const [f, setF] = useState({ name: "", meal_type: "snack", calories: "", protein: "", carbs: "", fat: "", fiber: "" });
+  const [f, setF] = useState({
+    name: initial?.name ?? "",
+    meal_type: initial?.meal_type ?? "snack",
+    calories: initial ? String(Math.round(num(initial.calories))) : "",
+    protein: initial ? String(Math.round(num(initial.protein))) : "",
+    carbs: initial ? String(Math.round(num(initial.carbs))) : "",
+    fat: initial ? String(Math.round(num(initial.fat))) : "",
+    fiber: initial ? String(Math.round(num(initial.fiber))) : "",
+  });
   const field = "w-full rounded-2xl bg-white/5 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary";
 
   return (
@@ -535,7 +545,7 @@ function MealForm({
         <input aria-label="Fiber grams" inputMode="numeric" placeholder="fiber g" value={f.fiber} onChange={(e) => setF({ ...f, fiber: e.target.value })} className={field} />
       </div>
       <button disabled={pending} className="w-full rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition hover:brightness-110 disabled:opacity-60">
-        {pending ? "Saving…" : "Log meal"}
+        {pending ? "Saving…" : (submitLabel ?? "Log meal")}
       </button>
       <EstimateNote>Nutrition you enter is stored as your own estimate.</EstimateNote>
     </form>
